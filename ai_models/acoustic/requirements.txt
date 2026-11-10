@@ -1,0 +1,8 @@
+# Install in a dedicated acoustic .venv, not the FastAPI virtual environment.
+tensorflow>=2.19,<2.22
+tensorflow-hub>=0.16,<0.18
+numpy>=1.26,<3
+scipy>=1.13,<2
+soundfile>=0.12,<1
+sounddevice>=0.5,<1
+setuptools<81

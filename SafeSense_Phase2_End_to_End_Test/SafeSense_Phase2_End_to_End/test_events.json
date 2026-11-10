@@ -1,0 +1,10 @@
+[
+  {
+    "time": 4.9,
+    "type": "SUSPECTED FALL",
+    "severity": "HIGH",
+    "person_id": 3,
+    "source": "point_cloud_heuristic",
+    "verified": false
+  }
+]

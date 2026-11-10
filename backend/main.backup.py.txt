@@ -1,0 +1,121 @@
+"""SafeSense AI simulation-first FastAPI prototype.
+
+NOT a production emergency dispatch service. In-memory data and no authentication.
+"""
+from collections import deque
+from datetime import datetime, timezone
+from threading import RLock
+from typing import Literal
+from uuid import uuid4
+import time
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+EventType = Literal['presence','normal_motion','rapid_motion','fall','scream','impact','sos']
+EventSource = Literal['simulation','yamnet','radar','vision','sos_button']
+
+class EventIn(BaseModel):
+    zone: str = Field(min_length=1, max_length=80)
+    type: EventType
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    source: EventSource = 'simulation'
+
+class AckIn(BaseModel):
+    staff: str = Field(min_length=1, max_length=80)
+
+app = FastAPI(title='SafeSense AI Prototype Backend', version='1.0.0')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        'http://localhost:3000','http://127.0.0.1:3000',
+        'http://localhost:3001','http://127.0.0.1:3001',
+        'http://localhost:5173','http://127.0.0.1:5173',
+    ],
+    allow_credentials=False,
+    allow_methods=['GET','POST'],
+    allow_headers=['Content-Type'],
+)
+
+_lock = RLock()
+_events = deque(maxlen=500)
+_incidents = []
+FUSION_WINDOW_SECONDS = 5.0
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def public_event(event):
+    return {k:v for k,v in event.items() if k != '_monotonic'}
+
+
+def assess(event, now):
+    if event.type == 'sos' and event.confidence >= 0.5:
+        return 'CRITICAL', 'SOS activated (prototype test; no emergency dispatch)'
+    recent = [x for x in _events if x['zone'] == event.zone and
+              x['_monotonic'] >= now - FUSION_WINDOW_SECONDS and x['confidence'] >= 0.5]
+    observed = {x['type'] for x in recent}
+    if 'fall' in observed and ('scream' in observed or 'impact' in observed):
+        return 'HIGH', 'Fall corroborated by scream or impact within five seconds'
+    if observed.intersection({'fall','scream','impact','rapid_motion'}):
+        return 'OBSERVE', 'Unverified safety signal; needs corroboration'
+    return 'LOW', 'No corroborated safety signal'
+
+
+@app.get('/health')
+def health():
+    return {'status': 'online', 'mode': 'SIMULATION_FIRST', 'time': utc_now(),
+            'note': 'Prototype only; does not dispatch emergency services'}
+
+
+@app.get('/state')
+def state():
+    with _lock:
+        return {
+            'mode': 'SIMULATION_FIRST',
+            'updated_at': utc_now(),
+            'events': [public_event(e) for e in list(_events)[-40:]][::-1],
+            'incidents': [dict(x) for x in _incidents[-30:]][::-1],
+        }
+
+
+@app.post('/event')
+def create_event(event: EventIn):
+    now = time.monotonic()
+    with _lock:
+        row = {**event.model_dump(), 'id': str(uuid4()), 'timestamp': utc_now(), '_monotonic': now}
+        _events.append(row)
+        level, reason = assess(event, now)
+        row['level'] = level
+        row['reason'] = reason
+        incident = None
+        if level in ('HIGH','CRITICAL'):
+            incident = {
+                'id': str(uuid4()), 'zone': event.zone, 'level': level,
+                'reason': reason, 'created_at': utc_now(), 'status': 'NEW',
+                'staff': None, 'source': event.source,
+                'is_test': True,
+            }
+            _incidents.append(incident)
+        return {'event': public_event(row), 'incident': dict(incident) if incident else None}
+
+
+@app.post('/incidents/{incident_id}/ack')
+def acknowledge(incident_id: str, ack: AckIn):
+    with _lock:
+        for item in _incidents:
+            if item['id'] == incident_id:
+                item.update(status='ACKNOWLEDGED', staff=ack.staff, acknowledged_at=utc_now())
+                return dict(item)
+    raise HTTPException(status_code=404, detail='Incident not found')
+
+
+@app.post('/reset')
+def reset():
+    with _lock:
+        _events.clear()
+        _incidents.clear()
+    return {'status': 'reset', 'mode': 'SIMULATION_FIRST'}

@@ -1,0 +1,7 @@
+{
+  "name": "SafeSense AI — Privacy-First Campus Safety Early Warning",
+  "description": "Privacy-first campus safety early warning staff dashboard. Multi-modal sensor fusion, real-time alert triage, floor-plan digital twin, scenario testing, and validation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

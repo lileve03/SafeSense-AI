@@ -1,0 +1,1076 @@
+# MASTER BUILD PROMPT: SafeSense AI — Privacy-First School Safety Command Centre
+
+## YOUR ROLE
+
+Act as a Senior AI Solutions Architect, Full-Stack Engineer, UI/UX Designer, Digital Twin Engineer, and award-winning hackathon product designer.
+
+Build a visually exceptional, functional, interactive web application called **SafeSense AI — Privacy-First School Safety Command Centre**.
+
+The application must feel like a real enterprise-grade intelligent school safety operations platform.
+
+Do not create a simple dashboard template or static mockup. Develop a working, navigable, responsive proof of concept with interactive components, meaningful simulated data, functional incident management, a school digital twin, and a transparent explainable risk engine.
+
+The system is designed for school administrators, security staff, and authorised teachers.
+
+**Product philosophy: Detect potential danger early. Protect privacy. Empower human response.**
+
+Important: This is a research and hackathon MVP. Do not claim that untested models, hardware integrations, accuracy metrics, or safety outcomes have been validated.
+
+---
+
+# 1. DESIGN SYSTEM AND VISUAL IDENTITY
+
+Design a high-end command centre that combines the sophistication of a modern SaaS platform with the spatial awareness of an intelligent building monitoring system.
+
+Use:
+
+- React + TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Lucide icons
+- Framer Motion for subtle animations
+- Recharts for analytical visualisations
+- React Three Fiber + Three.js for the interactive digital twin
+- Zustand or equivalent for shared state
+- A modular service layer for later MQTT, REST, WebSocket, and AI integration
+
+Use a refined, professional dark-mode design as the primary theme.
+
+Colours:
+- Main background: #08111F
+- Surface: #101D30
+- Secondary surface: #17263B
+- Primary blue: #3B82F6
+- Cyan accent: #22D3EE
+- Success green: #22C55E
+- Warning amber: #F59E0B
+- Critical red: #EF4444
+- Primary text: #F8FAFC
+- Secondary text: #94A3B8
+
+Use Inter or a similarly clean modern font.
+
+Design requirements:
+- Clean navigation sidebar
+- Compact top navigation
+- Rounded cards
+- Consistent spacing
+- Excellent typography hierarchy
+- Clearly distinguish operational status from warning severity
+- Smooth transitions and purposeful animations
+- Highly legible data, including when projected for judges
+- Responsive layouts for laptop, desktop, and tablet
+- No excessively decorative neon effects
+- No unnecessary clutter
+
+Create a polished interface that looks sophisticated enough for an AI technology company or professional security operations platform.
+
+---
+
+# 2. APPLICATION NAVIGATION
+
+Create the following pages, with functional routing and a consistent app shell.
+
+1. Overview — Command Centre
+2. School Digital Twin
+3. Live Monitoring
+4. Incident Management
+5. AI Risk Intelligence
+6. Sensor Network
+7. Analytics & Reports
+8. Scenario Testing Lab
+9. Staff Response Centre
+10. Privacy & System Settings
+
+The top bar should display:
+- SafeSense AI branding
+- Current school/site selector
+- System connection status
+- LIVE / SIMULATION indicator
+- Current local time
+- Notifications
+- User role and avatar
+- Demo Mode toggle
+
+Include a global search where useful.
+
+No navigation item should lead to a blank page.
+
+---
+
+# 3. OVERVIEW — SCHOOL SAFETY COMMAND CENTRE
+
+Build a comprehensive real-time operational overview.
+
+### KPI cards
+
+Display:
+
+- Active Incidents
+- Critical Alerts
+- Zones Monitored
+- Sensors Online / Total
+- Alerts Awaiting Acknowledgement
+- Average Staff Acknowledgement Time
+- Average Response Time
+- System Health
+
+KPIs must be derived from application data rather than independent hardcoded values.
+
+In simulation mode, clearly mark generated information as demo data.
+
+### Central digital twin
+
+Place an interactive school map in the largest central panel.
+
+It should display:
+- School building layout
+- Floor selector
+- Corridor locations
+- Staircases
+- Canteen
+- School entrances
+- Classrooms or teaching areas
+- Restrooms and other private zones
+- Sensor locations
+- Alert locations
+
+Use normal, observation, high-risk, and critical indicators.
+
+### Live incident feed
+
+Place a real-time incident queue alongside the digital twin.
+
+Each item displays:
+- Incident ID
+- Zone
+- Risk level
+- Detection time
+- Triggering sensor or signals
+- Current response status
+- Assigned staff
+
+Clicking an incident should open a detailed incident drawer and highlight the corresponding zone on the map.
+
+### Other components
+
+Add:
+- Incident timeline
+- Sensor health summary
+- Risk-level distribution
+- Latest response activities
+- Quick Launch Scenario action
+- View Full Digital Twin action
+- Emergency escalation overview
+
+Every widget should update when the shared incident state changes.
+
+---
+
+# 4. INTERACTIVE 3D SCHOOL DIGITAL TWIN — SIGNATURE FEATURE
+
+This is the central innovation and must receive the highest level of visual and interaction quality.
+
+Create a real 3D digital twin using React Three Fiber and Three.js.
+
+Do not use a static image pretending to be a 3D map.
+
+### 4.1 School architecture
+
+Create a configurable demonstration school with:
+
+- Ground Floor
+- First Floor
+- Classrooms
+- Main corridors
+- Staircases
+- Restrooms
+- Canteen
+- Main entrance
+- School courtyard
+
+Use a clean, modern low-poly or architectural isometric appearance.
+
+Use simplified building geometry where necessary.
+
+Represent rooms with proper walls, floors, room boundaries, and accessible camera angles.
+
+Provide:
+- Rotate
+- Pan
+- Zoom
+- Reset camera
+- Top view
+- Isometric view
+- Fullscreen
+- Floor selection
+- Exploded floor view, if practical
+- 2D floor-plan fallback
+
+### 4.2 Zone highlighting
+
+Each zone contains:
+- Zone identifier
+- Zone name
+- Floor
+- Zone classification
+- Sensor coverage
+- Sensor health
+- Current risk state
+- Latest event timestamp
+
+Risk visuals:
+- LOW: subtle green
+- OBSERVE: amber outline
+- HIGH: strong amber/orange highlight
+- CRITICAL: pulsing red outline
+
+Avoid constantly flashing the entire dashboard.
+
+Clicking a zone opens a detailed side panel showing status, associated sensor nodes, contributing signals, and related incidents.
+
+### 4.3 Privacy zones
+
+Restrooms and changing rooms must NEVER display camera footage.
+
+Only use permitted sensing:
+- mmWave radar
+- Local acoustic event classification
+- SOS button status
+
+In private zones, show only anonymous sensor indicators, zone-level events, and privacy-safe animations.
+
+Do not render faces, identifiable students, or surveillance video.
+
+A privacy lock icon should be visible on these zones.
+
+The interface must explicitly state:
+"Privacy-Protected Zone — No Camera Monitoring."
+
+### 4.4 Anonymous activity visualisation
+
+For public areas, optionally display anonymous stick figures derived from pose keypoints when actual pose data is available.
+
+For private areas, default to zone-level presence and motion indicators.
+
+Only show approximate anonymous silhouettes or positions when the connected hardware genuinely provides sufficiently detailed positional data.
+
+Do not infer exact body locations or multiperson trajectories from a simple presence/fall sensor.
+
+If using DFRobot C1001, display supported vendor outputs such as presence, movement, and fall status.
+
+Do not claim that C1001 supplies point-cloud visualisation.
+
+For point-cloud demonstrations, provide a separately labelled simulated point-cloud mode or future TI IWR-compatible mode.
+
+### 4.5 Event-linked animations
+
+When a high-risk event is detected:
+1. Highlight its zone.
+2. Focus the camera on the relevant area.
+3. Display an alert marker.
+4. Open the associated incident card.
+5. Show which sensor signals contributed.
+6. Display the current response status.
+
+SOS activation should immediately trigger the critical workflow without waiting for AI confidence.
+
+### 4.6 2D map
+
+Include a 2D view of the same school layout.
+
+It should display:
+- Rooms
+- Zones
+- Sensors
+- Alerts
+- Response staff locations only if legitimately available or explicitly simulated
+
+Maintain consistent zone IDs between the 2D and 3D maps.
+
+Create one shared map data model so incidents, sensors, and zones remain synchronised across all pages.
+
+---
+
+# 5. LIVE MONITORING
+
+Separate this into two operational categories.
+
+### Public areas — Vision Monitoring
+
+Display permitted camera feeds or clearly labelled prerecorded/simulated feeds.
+
+Potential pipeline:
+Video → YOLO11n-pose → 17 body keypoints → person tracking → temporal features → optional ST-GCN → risk events.
+
+Include:
+- Camera identifier
+- Camera location
+- Stream health
+- Timestamp
+- FPS
+- Pose detection overlay toggle
+- Anonymous keypoint overlay
+- Person count, if supported
+- Model result
+- Confidence, if calibrated and available
+- Event detection timeline
+
+Supported features for analysis include:
+- Relative person proximity
+- Motion speed
+- Posture
+- Rapid movement
+- Sustained fight-like motion indicators
+
+Do not treat proximity alone as evidence of aggression.
+
+Do not label a student as a bully.
+
+Provide a Video Upload & Replay mode so judges can demonstrate the system without a physical RTSP camera.
+
+### Private areas — Privacy-Safe Monitoring
+
+Display radar, acoustic event, and SOS tiles.
+
+Radar:
+- Presence state
+- Movement state
+- Fall state
+- Sensor status
+- Last received timestamp
+
+Acoustic:
+- Scream-like event
+- Impact-like event
+- Normal background sound
+- Classifier confidence if available
+- Last event timestamp
+
+SOS:
+- Button state
+- Last activation
+- Connectivity status
+- Event history
+
+Use abstract waveforms or class probability bars where justified.
+
+Never display private-area video.
+
+Do not perform speech transcription or store raw private-area audio.
+
+Display a clear notice:
+"Only classified sensor events are transmitted. Raw private-area audio is not uploaded."
+
+---
+
+# 6. EXPLAINABLE AI RISK INTELLIGENCE
+
+Build an operational, transparent risk decision system.
+
+IMPORTANT: The MVP uses a **Temporal Event State Machine + configurable deterministic rules**, NOT a trained multimodal fusion classifier.
+
+Supported risk levels:
+
+LOW:
+Normal activity without corroborating threat indicators.
+
+OBSERVE:
+A brief or isolated unusual event. Log and monitor; do not issue an emergency notification.
+
+HIGH:
+Sustained concerning events in the same zone with corroborating signals. Request human verification.
+
+CRITICAL:
+SOS activation. Trigger immediate notification irrespective of model confidence.
+
+The engine must evaluate:
+- Zone
+- Timestamp
+- Sensor/event type
+- Event duration
+- Persistence
+- Supporting signals
+- Sensor availability
+- Signal freshness
+- Debouncing
+- Cooldown periods
+
+All thresholds must be adjustable in a configuration panel and explicitly treated as unvalidated until tested.
+
+### Explainability panel
+
+For every incident, show:
+
+- Risk classification
+- Triggering rule
+- Timeline of received events
+- Contributing sensors
+- Supporting evidence
+- Missing sensor signals
+- Data freshness
+- Important uncertainty
+- Human verification status
+
+Examples:
+
+"High Risk — Sustained fall indicator and scream-like acoustic event detected in the same zone within the configured time window."
+
+"Observe — Brief rapid motion detected without corroborating evidence."
+
+"Critical — SOS button activated. Immediate response required."
+
+Never present risk level as proof of bullying or fighting.
+
+### Risk visualisation
+
+Build an interactive evidence timeline using horizontal event tracks.
+
+One track for:
+- Vision
+- Radar
+- Acoustic events
+- SOS
+- Fused risk state
+
+Show how signals align over time.
+
+Allow judges to inspect why a particular alert was or was not generated.
+
+Do not invent a scientifically calibrated probability of bullying.
+
+A numerical rule score may be displayed only if explicitly labelled as a demonstration heuristic, not an AI-derived threat probability.
+
+---
+
+# 7. INCIDENT MANAGEMENT
+
+Build a complete incident lifecycle.
+
+Incident table columns:
+- Incident ID
+- Date and Time
+- Zone
+- Severity
+- Detection source
+- Reason
+- Assigned staff
+- Acknowledgement status
+- Resolution status
+
+Filters:
+- Date
+- Severity
+- Zone
+- Sensor type
+- Incident state
+- Assigned staff
+
+Clicking an incident opens a detailed drawer or full incident page.
+
+### Incident detail
+
+Include:
+- Incident overview
+- Linked digital-twin location
+- Contributing sensor events
+- Explanation from the risk engine
+- Event timeline
+- Staff response history
+- Acknowledgements
+- Investigation notes
+- Resolution classification
+- Audit trail
+
+### Incident lifecycle
+
+Implement:
+
+Detected → Notified → Acknowledged → Responding → On-Site / Checked → Resolved → Closed
+
+Allow a false alarm to be marked during resolution.
+
+Require a reason when closing an incident.
+
+Provide:
+- Assign staff
+- Acknowledge
+- Start response
+- Mark arrival/check completed
+- Resolve
+- Mark false alarm
+- Escalate
+- Add notes
+
+Maintain timestamps for each transition.
+
+Store updates consistently so the overview, digital twin, incident queue, and analytics all update.
+
+High and critical incidents should receive appropriately prominent treatment without implying an automatic disciplinary finding.
+
+---
+
+# 8. STAFF RESPONSE CENTRE
+
+Build a teacher/security staff response interface.
+
+Support desktop and mobile-friendly layouts.
+
+### Teacher alert card
+
+Display:
+- School name
+- Risk level
+- Location
+- Detection time
+- Reason for alert
+- Required response
+- Acknowledge button
+- Responding button
+- Mark On-Site button
+- Escalation button
+
+Support optional dual-person acknowledgement or confirmation as a configurable operational policy.
+
+Do not require two acknowledgements before sending a critical SOS alert.
+
+### Response workflow
+
+1. System detects and classifies an event.
+2. An alert appears in the command centre.
+3. Assigned staff receive a notification.
+4. A staff member acknowledges.
+5. Staff indicate that they are responding.
+6. Staff reach/check the area.
+7. A human verifies the situation.
+8. The incident is resolved and logged.
+
+Display elapsed acknowledgement and response times.
+
+Do not show fictitious GPS locations or ETAs as live facts.
+
+Any demonstrated staff location or ETA must be explicitly identified as simulated unless supported by a real integration.
+
+### Notification system
+
+Create in-app toast notifications and a notification inbox.
+
+Provide integration-ready adapters for:
+- Web push
+- Email
+- SMS
+- External messaging APIs
+
+If real providers are not connected, simulate delivery and label the provider status clearly.
+
+---
+
+# 9. SENSOR NETWORK MANAGEMENT
+
+Build a sensor operations page showing all configured sensor devices.
+
+Support:
+- Camera nodes
+- mmWave radar nodes
+- Acoustic classification nodes
+- SOS buttons
+- Edge gateways
+
+Display:
+- Device ID
+- Sensor type
+- Associated zone
+- Online / Offline / Degraded
+- Last heartbeat
+- Last event
+- Firmware version, if known
+- MQTT status
+- Configuration
+- Data source type
+
+Data source modes:
+- Simulated
+- Uploaded replay
+- Connected live device
+
+Never misrepresent simulated devices as physically connected.
+
+Add functionality:
+- Sensor search
+- Device filtering
+- Test sensor connection
+- Simulate sensor offline
+- Restore simulated sensor
+- View event history
+- Configure zone mapping
+- Inspect raw event JSON, excluding private audio and identifiable content
+
+If a sensor goes offline:
+- Show a warning.
+- Mark data as stale.
+- Avoid interpreting absence of events as proof of safety.
+- Keep available SOS pathways operational where possible.
+
+---
+
+# 10. ANALYTICS & REPORTS
+
+Provide operational analytics and research evaluation as separate sections.
+
+### Operational analytics
+
+Show:
+- Alerts over time
+- Incidents by zone
+- Distribution by risk level
+- Sensor uptime
+- Average acknowledgement time
+- Average response time
+- Incident outcomes
+- False alarm reports
+
+Use Recharts for line, bar, area, and donut charts.
+
+Allow filtering by date range and zone.
+
+### AI evaluation
+
+Provide a separate evaluation workspace for:
+
+- Precision
+- Recall
+- F1 score
+- Confusion matrix
+- False alerts per hour
+- Missed alert rate
+- P50 end-to-end latency
+- P95 end-to-end latency
+- SOS delivery success rate
+- Fusion vs single-sensor baseline
+
+Important:
+Do not populate research performance cards with fabricated measured results.
+
+Show "Not Yet Measured" until a dataset or verified results are imported.
+
+Provide clear distinctions between:
+- Proposed acceptance target
+- Measured result
+- Simulated demonstration data
+
+Proposed MVP gates:
+- 100% successful scripted SOS delivery
+- P95 end-to-end alert latency below 3 seconds
+- No raw audio uploaded from private zones
+- Fewer false alerts than a single-sensor baseline without materially reducing recall
+
+All these are PROPOSED TARGETS, not achieved results.
+
+Add:
+- CSV export
+- Report export
+- Evaluation run details
+- Metric definitions
+- Test sample counts
+
+---
+
+# 11. SCENARIO TESTING LAB — HACKATHON DEMO MODE
+
+Create a fully interactive scenario simulation and replay environment.
+
+This is essential for judging and demonstration.
+
+The system must work even without real cameras, radar, microphones, or SOS hardware.
+
+Implement six selectable scenarios from the proposal.
+
+### Scenario 1 — Normal Walking
+Normal movement in a public corridor.
+
+Expected behaviour:
+- Detect normal activity.
+- Remain LOW.
+- No emergency notification.
+
+### Scenario 2 — Running
+Students running through a corridor.
+
+Expected behaviour:
+- Register motion activity.
+- Avoid automatically classifying running as aggression.
+- Apply configured rules.
+- Generally remain LOW or OBSERVE based on the scripted signals.
+
+### Scenario 3 — Cheering or Door Slam
+A brief loud sound in an acoustic monitoring zone.
+
+Expected behaviour:
+- Detect the acoustic event.
+- Avoid automatically treating it as violence.
+- Remain LOW or OBSERVE without corroboration.
+
+### Scenario 4 — Fall
+A radar fall indicator activates in a private zone.
+
+Expected behaviour:
+- Record the fall event.
+- Display the event and relevant uncertainty.
+- Apply the configured duration and risk rules.
+- Do not automatically claim that a fall proves violence.
+
+### Scenario 5 — Fall + Scream
+A radar fall indicator and scream-like event occur within the configured time window in the same private zone.
+
+Expected behaviour:
+- Correlate events by zone and timestamp.
+- Trigger HIGH according to the demo's configured corroboration rule.
+- Highlight the zone in the digital twin.
+- Generate a staff verification alert.
+- Display the contributing evidence.
+
+### Scenario 6 — SOS Emergency
+An SOS button is pressed.
+
+Expected behaviour:
+- Immediately transition to CRITICAL.
+- Do not wait for model confidence or supporting sensor signals.
+- Highlight the location.
+- Generate a critical incident.
+- Notify staff.
+- Activate the response workflow.
+
+### Scenario control panel
+
+Include:
+- Select scenario
+- Start
+- Pause
+- Resume
+- Reset
+- Playback speed
+- Step through events
+- Inject event manually
+- View event stream
+- View expected vs actual outcomes
+
+The entire dashboard must react to the selected scenario.
+
+For instance, running the Fall + Scream scenario must automatically:
+1. Change the relevant sensor readings.
+2. Update the risk engine.
+3. Highlight the affected map zone.
+4. Create an incident.
+5. Update dashboard KPIs.
+6. Show the notification.
+7. Allow staff acknowledgement.
+8. Add lifecycle entries.
+9. Update analytics.
+
+All these should use one shared state model, not disconnected visual simulations.
+
+Clearly display a permanent "SIMULATED SCENARIO" label while replay mode is active.
+
+### Experimental validation
+
+Provide a way to repeat scenarios 5–10 times each and export results.
+
+Record:
+- Scenario ID
+- Trial ID
+- Expected risk
+- Actual risk
+- Detection timestamp
+- Alert timestamp
+- Notification outcome
+- Latency
+- Contributing events
+- Pass/fail status
+
+Only calculate success metrics from actual recorded trials.
+
+---
+
+# 12. PRIVACY AND ACCESS CONTROL
+
+Privacy is a core product requirement, not an optional feature.
+
+Implement privacy by design.
+
+### Non-negotiable principles
+
+- No cameras in restrooms or changing rooms
+- No private-area video feeds
+- No private-area raw audio upload
+- No speech transcription
+- No facial recognition
+- No automated identification of suspected bullies
+- No automatic disciplinary conclusions
+- Human verification before incident conclusions
+- Minimal personal data collection
+- Clear audit logging
+- Data retention controls
+
+Provide a Privacy & Compliance page.
+
+Display privacy controls for:
+- Role-based access
+- Event retention
+- Access history
+- Alert history
+- Data export
+- Data deletion
+- Device permissions
+- Data source visibility
+
+Implement basic roles:
+- Administrator
+- Security Officer
+- Teacher
+
+Administrators manage system configuration.
+
+Security staff manage monitoring and response.
+
+Teachers access assigned incidents and relevant alerts.
+
+Provide front-end role-aware navigation. For production readiness, enforce permissions on the backend as well.
+
+Design toward applicable Malaysian privacy and school requirements, including PDPA considerations, but do not claim legal compliance has been certified.
+
+---
+
+# 13. BACKEND AND DATA ARCHITECTURE
+
+Create a modular system with clear separation of concerns.
+
+Suggested services:
+- Sensor ingestion
+- Event normalisation
+- Temporal state machine
+- Incident service
+- Notification service
+- Device health service
+- Reporting service
+- Scenario playback service
+
+Suggested entities:
+- School
+- Floor
+- Zone
+- SensorDevice
+- SensorEvent
+- RiskAssessment
+- Incident
+- IncidentEvent
+- StaffUser
+- Notification
+- Acknowledgement
+- Scenario
+- EvaluationRun
+- AuditLog
+
+Provide a realistic seed dataset representing a demonstration school.
+
+Use consistent IDs.
+
+A normalised sensor event should include fields such as:
+
+{
+  "event_id": "evt_1001",
+  "timestamp": "2026-10-21T10:30:00+08:00",
+  "zone_id": "RESTROOM_A",
+  "sensor_id": "RADAR_01",
+  "modality": "radar",
+  "event_type": "fall_detected",
+  "confidence": null,
+  "duration_ms": 2000,
+  "source_mode": "simulation"
+}
+
+Confidence is optional.
+
+Do not fabricate model confidence when only a vendor state or binary alert is available.
+
+Design adapters for:
+- MQTT
+- WebSocket
+- REST API
+- CSV event replay
+- JSON event replay
+- Local mock-event generator
+
+MQTT architecture should support:
+
+ESP32 / sensor nodes → Edge gateway → MQTT broker → Sensor ingestion → Risk engine → Dashboard.
+
+Keep local inference as the proposed architecture.
+
+The frontend should remain usable through mock adapters when real services are unavailable.
+
+If implementing the backend in the selected environment is possible, implement a working lightweight backend with persistence.
+
+Otherwise, create clean service interfaces and clearly label unavailable integrations.
+
+---
+
+# 14. AI MODEL INTEGRATION
+
+Prepare integration-ready interfaces based on the technical proposal.
+
+### Vision
+YOLO11n-pose:
+- RGB frame input
+- 640 image size
+- 17 keypoints
+- Tracking and temporal features
+- Optional ST-GCN future integration
+
+### Acoustic
+YAMNet:
+- 16 kHz mono audio
+- On-device / edge classification
+- Short-window acoustic classification
+- Event labels such as scream and impact
+- No speech recognition
+
+### Radar
+DFRobot C1001:
+- UART integration through edge hardware
+- Presence, movement, and fall events
+- Do not assume access to detailed point clouds
+
+Future TI IWR-compatible radar:
+- Optional anonymous point-cloud support
+- Only when hardware and firmware actually supply the required output
+
+### Fusion
+Temporal Event State Machine:
+- Configurable rules
+- Time windows
+- Same-zone correlation
+- Event persistence
+- Debouncing
+- SOS override
+
+The user interface must not imply that a trained fusion classifier already exists.
+
+---
+
+# 15. HACKATHON PRESENTATION MODE
+
+Provide a dedicated Presentation Mode for judges.
+
+Add a prominent "Start Demo" control.
+
+The demo walkthrough should guide judges through:
+
+1. School monitoring overview
+2. 3D digital twin
+3. Normal activity
+4. False-positive prevention
+5. Private-area fall + scream event
+6. Risk explanation
+7. Teacher acknowledgement
+8. SOS emergency
+9. Incident resolution
+10. Analytics and privacy safeguards
+
+Use focus animations and concise explanatory overlays.
+
+Provide Next Step and Previous Step navigation.
+
+Do not require real hardware to demonstrate simulated scenarios.
+
+Ensure animations remain controlled and do not interfere with interaction.
+
+---
+
+# 16. QUALITY AND RELIABILITY REQUIREMENTS
+
+Implement:
+- Loading states
+- Empty states
+- Error handling
+- Connection status
+- Offline simulation mode
+- Timestamp consistency
+- Responsive navigation
+- Accessible labels
+- Keyboard interaction for main controls
+- Clear severity indicators
+- Confirmations for destructive actions
+- Incident state persistence where available
+
+Avoid:
+- Dead buttons
+- Fake navigation
+- Random metrics with no underlying data
+- Static charts pretending to update
+- Contradictory incident states
+- Simulated feeds labelled as real
+- Unverified hardware capability claims
+- Excessive animations
+- Overcrowded screens
+
+A well-functioning proof of concept is more important than many decorative but unfinished features.
+
+---
+
+# 17. IMPLEMENTATION PRIORITIES
+
+Build progressively in this order:
+
+PHASE 1 — Functional foundation:
+- Dashboard shell
+- Navigation
+- Shared school data model
+- Interactive 2D map
+- Sensor and incident simulation state
+- Four-level risk state machine
+
+PHASE 2 — Signature functionality:
+- Interactive 3D digital twin
+- Zone highlighting
+- Map-to-incident linking
+- Scenario playback
+- Functional alert workflow
+
+PHASE 3 — Advanced operations:
+- Sensor network management
+- Staff response centre
+- Explainability timeline
+- Analytics
+- Evaluation export
+
+PHASE 4 — Demonstration polish:
+- Presentation mode
+- Responsive layouts
+- Animation improvements
+- Privacy controls
+- Real sensor adapter interfaces
+
+If a technically advanced feature cannot be completed, provide a truthful, working simplified version rather than an impressive but misleading placeholder.
+
+---
+
+# 18. SUCCESS CRITERIA
+
+The finished application must allow a judge to:
+
+1. Open the Command Centre and understand school safety status within five seconds.
+2. Navigate a real interactive 3D school model.
+3. Select any zone and inspect its sensors.
+4. Run the Fall + Scream scenario.
+5. Observe a HIGH alert emerge through deterministic rules.
+6. See the exact contributing signals.
+7. Acknowledge and resolve the incident.
+8. Trigger a CRITICAL SOS scenario.
+9. Observe all KPIs, notifications, and incident history update consistently.
+10. Verify that private areas contain no camera monitoring.
+11. Review research evaluation targets without confusing them with measured results.
+12. Understand that this is a privacy-first, human-verified proof of concept.
+
+Build this as a cohesive, beautiful, and genuinely functional application.
+
+**The final product should communicate: SafeSense AI does not replace teachers or accuse students. It helps authorised staff recognise potential safety risks earlier, understand the evidence, and respond more effectively while protecting student privacy.**

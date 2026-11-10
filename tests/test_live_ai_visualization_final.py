@@ -1,0 +1,330 @@
+"""Actual isolated HTTP + browser workflow. Never sends Telegram or touches existing services."""
+from pathlib import Path
+import json,os,subprocess,sys,time,traceback,shutil
+import httpx
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+sys.stdout.reconfigure(encoding='utf-8')
+OUT=ROOT/'runtime/live-ai-final'
+OUT.mkdir(parents=True,exist_ok=True)
+RESULTS=[]
+ENV=os.environ.copy()
+ENV.update(SAFESENSE_DB_PATH=str(OUT/('test-'+str(int(time.time()))+'.sqlite3')),
+           SAFESENSE_BACKEND_URL='http://127.0.0.1:18000',TELEGRAM_MODE='disabled',
+           SAFESENSE_AI_URL='http://127.0.0.1:18001',
+           VITE_API_BASE_URL='http://127.0.0.1:18000',VITE_AI_BASE_URL='http://127.0.0.1:18001',SAFESENSE_DASHBOARD_URL='http://127.0.0.1:3001',
+           SAFESENSE_API_TOKEN='monitoring-integration-test',VITE_SAFESENSE_API_TOKEN='monitoring-integration-test')
+ENV.update(SAFESENSE_EVIDENCE_DIR=str(OUT/'evidence'),SAFESENSE_ANNOTATION_DIR=str(OUT/'annotations'),SAFESENSE_ANALYSIS_CACHE_DIR=str(OUT/'cache'),SAFESENSE_PRECOMPUTE_ON_START='false')
+H={'X-SafeSense-Token':ENV['SAFESENSE_API_TOKEN']}
+B='http://127.0.0.1:18000';A='http://127.0.0.1:18001'
+client=httpx.Client(headers=H,timeout=20)
+processes=[]
+
+def check(name,fn):
+    started=time.perf_counter()
+    try:
+        actual=fn();row={'test':name,'status':'PASS','actual':actual}
+    except Exception as exc:
+        row={'test':name,'status':'FAIL','actual':str(exc),'trace':traceback.format_exc()}
+    row['seconds']=round(time.perf_counter()-started,3);RESULTS.append(row)
+    (OUT/'results.json').write_text(json.dumps(RESULTS,indent=2),encoding='utf-8')
+    print(row['status'],name,str(row['actual'])[:500],flush=True)
+
+def expect(response,code=200):
+    assert response.status_code==code,(response.status_code,response.text[:500])
+    return response.json()
+
+def start(name,cmd,url,cwd=ROOT):
+    log=(OUT/(name+'.log')).open('w',encoding='utf-8')
+    p=subprocess.Popen(cmd,cwd=cwd,env=ENV,stdout=log,stderr=subprocess.STDOUT,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    processes.append((p,log))
+    for _ in range(180):
+        if p.poll() is not None:raise RuntimeError(name+' exited; see log')
+        try:
+            if httpx.get(url,timeout=1).status_code==200:return p
+        except OSError:pass
+        except httpx.HTTPError:pass
+        time.sleep(.25)
+    raise RuntimeError(name+' startup timed out')
+
+def job(scenario,model,zone):
+    r=expect(client.post(A+'/monitoring/jobs',json={'scenario_id':scenario,'model':model,'zone_id':zone,'authorized':True}),202)
+    if scenario=='conflict' and model=='v2':
+        duplicate=expect(client.post(A+'/monitoring/jobs',json={'scenario_id':scenario,'model':model,'zone_id':zone,'authorized':True}),202)
+        assert duplicate['id']==r['id'],'Active identical CPU jobs must coalesce'
+    deadline=time.monotonic()+240
+    while time.monotonic()<deadline:
+        row=expect(client.get(A+'/monitoring/jobs/'+r['id']))
+        if row['status']=='COMPLETED':return row
+        assert row['status'] in ('QUEUED','RUNNING'),row
+        time.sleep(.5)
+    raise AssertionError('Inference timed out')
+
+saved={}
+def camera_job(scenario,camera,zone):
+    row=expect(client.post(A+'/monitoring/jobs',json={'scenario_id':scenario,'camera_id':camera,'zone_id':zone,'model':'all','authorized':True}),202)
+    for _ in range(480):
+        row=expect(client.get(A+'/monitoring/jobs/'+row['id']))
+        if row['status']=='COMPLETED':return row
+        assert row['status'] in ('RUNNING','QUEUED'),row
+        time.sleep(.5)
+    raise AssertionError('Inference deadline exceeded')
+try:
+    start('backend',[sys.executable,'-m','uvicorn','backend.main:app','--host','127.0.0.1','--port','18000'],B+'/health')
+    start('inference',[sys.executable,'-m','uvicorn','fight_api:app','--host','127.0.0.1','--port','18001'],A+'/health')
+    start('frontend',[shutil.which('node'),str(ROOT/'dashboard/node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port','3001','--strictPort'],'http://127.0.0.1:3001',ROOT/'dashboard')
+    from playwright.sync_api import sync_playwright,expect as browser_expect
+    from backend.registry import source
+    import cv2,numpy as np
+    from ultralytics import YOLO
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--enable-unsafe-swiftshader']);page=browser.new_page(viewport={'width':1500,'height':1050});page.set_default_timeout(20000)
+        measurements=[];verifier=YOLO(str(ROOT/'yolo11n-pose.pt'));errors=[];page.on('pageerror',lambda e:errors.append(str(e)));completed={}
+        def response(r):
+            if '/monitoring/jobs' in r.url and r.status in (200,202):
+                try:
+                    row=r.json()
+                    if row.get('status')=='COMPLETED':completed[row['camera_id']]=row
+                except Exception:pass
+        page.on('response',response)
+        page.goto('http://127.0.0.1:3001');page.locator('aside').get_by_role('button',name='Live Monitoring',exact=True).click()
+        panel=page.get_by_test_id('camera-monitoring');video=panel.locator('video').first
+        def camera(name,identifier,scenario,kind='cold'):
+            page.evaluate("""()=>{
+              window.__videoMs=null;window.__poseMs=null;window.__clicked=performance.now();
+              const playing=e=>{if(e.target.tagName==='VIDEO'&&e.target.closest('[data-testid=camera-monitoring]')){document.removeEventListener('playing',playing,true);const ready=()=>window.__videoMs=performance.now()-window.__clicked;if(e.target.requestVideoFrameCallback)e.target.requestVideoFrameCallback(ready);else ready();}};
+              document.addEventListener('playing',playing,true);
+              window.__observer?.disconnect();window.__observer=new MutationObserver(()=>{if(document.querySelector('[data-testid=camera-monitoring] [data-testid=person-box]')&&window.__poseMs===null)requestAnimationFrame(()=>{if(window.__poseMs===null)window.__poseMs=performance.now()-window.__clicked;});});
+              window.__observer.observe(document.querySelector('[data-testid=camera-monitoring]'),{childList:true,subtree:true});
+            }""")
+            started=time.perf_counter()
+            panel.get_by_role('button',name=name+' '+identifier+' RECORDED REAL VIDEO',exact=True).click()
+            browser_expect(video).to_have_attribute('data-camera-id',identifier)
+            browser_expect(panel.get_by_test_id('video-detection-overlay')).to_have_attribute('data-camera-id',identifier)
+            assert panel.get_by_test_id('person-box').count()==0,'Old camera boxes persisted'
+            page.wait_for_function("()=>{const v=document.querySelector('[data-testid=camera-monitoring] video');return v.readyState>=2&&!v.paused&&v.currentTime>0.1}")
+            browser_expect(panel.get_by_test_id('fight-video-overlay')).to_be_visible(timeout=240000)
+            row=completed[identifier];r=row['result'];saved[scenario]=r
+            page.wait_for_function('()=>window.__poseMs!==null&&window.__videoMs!==null')
+            if kind=='cold':assert not row.get('cache_hit'),row
+            else:assert row.get('cache_hit') or row.get('deduplicated'),row
+            measurements.append({'camera':identifier,'kind':kind,'video_first_decoded_ms':round(page.evaluate('window.__videoMs'),2),'first_pose_dom_commit_ms':round(page.evaluate('window.__poseMs'),2),'click_to_result_observed_ms':round((time.perf_counter()-started)*1000,2),'cache_tier':row.get('cache_tier'),'original_cpu_sec':r['total_processing_sec'],'queue_delay_sec':r['queue_delay_sec'],'model_profiles':[{k:m.get(k) for k in ('model_version','inference_time_sec','inference_fps','score','profile')} for m in r['model_results']]})
+            (OUT/'performance.json').write_text(json.dumps(measurements,indent=2),encoding='utf-8')
+            assert '/monitoring/sources/'+scenario+'?' in video.get_attribute('src'),'Dynamic overlays must use the original recording without duplicate baked skeletons'
+            assert r['camera_id']==identifier and not r['model_errors']
+            pose=next(m for m in r['model_results'] if m['model_version'].startswith('yolo'))
+            assert len(r['pose_frames'])==pose['processed_frames']==r['annotation_alignment']['frame_count']
+            for i,f in enumerate(r['pose_frames']):
+                assert f['frame_index']==i and abs(f['time_sec']-i/r['annotation_alignment']['fps'])<1e-6
+                assert f['fall_score'] is None and f['fall_state'] in ('NORMAL','POSSIBLE FALL','FALL CANDIDATE')
+                for j,p in enumerate(f['persons']):
+                    assert len(p['bbox_xyxy'])==4 and len(p['keypoints'])==17
+                    assert p['fall_candidate']==(p['fall_rule_active'] and p['fall_state']=='POSSIBLE FALL' and p['posture']=='horizontal')
+                    if p['fall_candidate']:assert p['track_id']>0 and p['track_age']>=8 and p['fall_score'] is None
+            samples=[f for f in r['pose_frames'] if f['persons'] and any(k['confidence'] and k['confidence']>=.5 for p in f['persons'] for k in p['keypoints'])]
+            assert samples,'Actual recording has no confident pose sample'
+            seen=[]
+            for f in [samples[len(samples)//4],samples[len(samples)//2],samples[-2]]:
+                target=f['time_sec']+.001
+                video.evaluate('(v,t)=>{v.pause();v.currentTime=t}',target)
+                page.wait_for_function("i=>document.querySelector('[data-testid=video-detection-overlay]').dataset.frameIndex===String(i)",arg=f['frame_index'])
+                page.wait_for_function("()=>{const v=document.querySelector('[data-testid=camera-monitoring] video');return !v.seeking&&v.readyState>=2}")
+                boxes=panel.get_by_test_id('person-box');assert boxes.count()==len(f['persons'])
+                for idx,p in enumerate(f['persons']):
+                    attrs=boxes.nth(idx).evaluate('(e)=>[e.getAttribute("x"),e.getAttribute("y"),e.getAttribute("width"),e.getAttribute("height")].map(Number)')
+                    x1,y1,x2,y2=p['bbox_xyxy'];assert np.allclose(attrs,[x1,y1,x2-x1,y2-y1])
+                assert panel.get_by_test_id('pose-bone').count()>0
+                assert panel.get_by_test_id('frame-detections').get_attribute('data-frame-index')==str(f['frame_index'])
+                seen.append(f['frame_index'])
+            f=samples[len(samples)//2];_,path=source(scenario);cap=cv2.VideoCapture(str(path));cap.set(cv2.CAP_PROP_POS_FRAMES,f['frame_index']);ok,image=cap.read();cap.release();assert ok
+            pred=verifier.predict(image,device='cpu',conf=.25,imgsz=640,verbose=False)[0]
+            assert len(pred.boxes)==len(f['persons'])
+            for person,box in zip(f['persons'],pred.boxes.xyxy.cpu().tolist()):assert np.allclose(person['bbox_xyxy'],box,atol=.001)
+            fight=next(m for m in r['model_results'] if m['model_version'] in ('v2','v3'))
+            assert fight['prediction'] in panel.get_by_test_id('fight-timeline-result').inner_text()
+            assert f"{fight['score']:.4f}" in panel.get_by_test_id('fight-video-overlay').inner_text()
+            assert not fight.get('pose_frames') and not fight.get('events')
+            page.screenshot(path=str(OUT/(identifier+'-'+kind+'.png')),full_page=True)
+            panel.get_by_role('button',name='Replay',exact=True).click();page.wait_for_function("()=>{const v=document.querySelector('[data-testid=camera-monitoring] video');return !v.paused&&v.currentTime>.1&&v.currentTime<1}")
+            video.evaluate('(v)=>v.pause()')
+            return {'camera':identifier,'scenario':scenario,'frames':len(r['pose_frames']),'persons':max(len(f['persons']) for f in samples),'seek_frames':seen,'fall_candidates':pose['candidate_frames'],'fight_label':fight['prediction'],'fight_score':fight['score'],'autoplay':True,'independent_YOLO_match':True}
+        check('School Entrance actual recording: boxes, skeletons, scores, seeks and replay',lambda:camera('School Entrance','CAM_ENTRANCE','adl_01'))
+        check('School Hall actual recording: boxes, skeletons, scores, seeks and replay',lambda:camera('School Hall','CAM_HALL','adl_02'))
+        cameras=expect(client.get(B+'/monitoring/cameras'))
+        assert len(cameras)==5 and all(c['available'] and c['source_type']=='RECORDED REAL VIDEO' for c in cameras)
+        for identifier in ('CAM_CANTEEN','CAM_STAIRCASE','CAM_CORRIDOR_A'):
+            c=next(c for c in cameras if c['camera_id']==identifier)
+            check(c['camera_name']+' cold real playback, frame alignment and inference',lambda c=c:camera(c['camera_name'],c['camera_id'],c['scenario_id']))
+        for c in cameras:
+            check(c['camera_name']+' cached real playback and immediate genuine poses',lambda c=c:camera(c['camera_name'],c['camera_id'],c['scenario_id'],'cached'))
+        def fall_box():
+            r=camera_job('fall','CAM_STAIRCASE','ZONE_STAIRCASE')['result']
+            saved['fall']=r
+            candidates=[f for f in r['pose_frames'] if any(p['fall_candidate'] for p in f['persons'])];assert candidates
+            panel.get_by_role('button',name='Staircase CAM_STAIRCASE RECORDED REAL VIDEO',exact=True).click()
+            browser_expect(panel.get_by_test_id('fight-video-overlay')).to_be_visible(timeout=240000)
+            f=candidates[len(candidates)//2];video.evaluate('(v,t)=>{v.pause();v.currentTime=t}',f['time_sec']+.001)
+            page.wait_for_function("i=>document.querySelector('[data-testid=video-detection-overlay]').dataset.frameIndex===String(i)",arg=f['frame_index'])
+            candidate=panel.locator('[data-fall-candidate=true]');assert candidate.count()==1
+            browser_expect(candidate.locator('text')).to_contain_text('POSSIBLE FALL');browser_expect(candidate.locator('text')).to_contain_text('binary rule ACTIVE')
+            assert candidate.locator('rect').first.get_attribute('stroke')=='#ef4444'
+            page.screenshot(path=str(OUT/'actual-fall-overlay.png'),full_page=True)
+            return {'real_candidate_frame':f['frame_index'],'colored_box':True,'score':'person confidence only; fall score unavailable'}
+        check('Actual fall recording: colored rule box and truthful confidence',fall_box)
+        def airtlab():
+            r=camera_job('conflict','CAM_CORRIDOR_A','ZONE_CORRIDOR_A')['result'];saved['conflict']=r
+            panel.get_by_role('button',name='Corridor A CAM_CORRIDOR_A RECORDED REAL VIDEO',exact=True).click()
+            browser_expect(panel.get_by_test_id('fight-video-overlay')).to_be_visible(timeout=240000)
+            fight=next(m for m in r['model_results'] if m['model_version']=='v3')
+            banner=panel.get_by_test_id('fight-video-overlay')
+            assert fight['candidate_detected'] and 'POSSIBLE FIGHT' in banner.inner_text()
+            assert 'uncalibrated' in banner.inner_text() and f"{fight['score']:.4f}" in banner.inner_text()
+            assert not panel.locator('[data-fighter]').count()
+            page.screenshot(path=str(OUT/'actual-airtlab-fight.png'),full_page=True)
+            return {'model':fight['model_version'],'score':fight['score'],'whole_video_banner':True,'fighter_boxes':0,'frames':len(r['pose_frames'])}
+        check('Actual AIRTLab positive fight banner, genuine score and no fighter localization',airtlab)
+        def switch():
+            for name in ['School Entrance CAM_ENTRANCE RECORDED REAL VIDEO','School Hall CAM_HALL RECORDED REAL VIDEO']:
+                panel.get_by_role('button',name=name,exact=True).click()
+            browser_expect(video).to_have_attribute('data-camera-id','CAM_HALL')
+            browser_expect(panel.get_by_test_id('fight-video-overlay')).to_be_visible(timeout=240000)
+            assert panel.get_by_test_id('video-detection-overlay').get_attribute('data-camera-id')=='CAM_HALL'
+            assert completed['CAM_HALL']['result']['camera_id']=='CAM_HALL'
+            page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(300)
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            page.screenshot(path=str(OUT/'mobile-overlay.png'),full_page=True)
+            return {'rapid_switch':'CAM_HALL','no_overflow':True,'browser_errors':errors}
+        check('Rapid camera switching and mobile layout',switch)
+        def v2():
+            r=job('adl_01','v2','ZONE_ENTRANCE')['result'];assert 0<=r['score']<=1 and r['prediction'];assert not r.get('pose_frames') and not r.get('events')
+            return {'label':r['prediction'],'score':r['score'],'whole_clip_only':True}
+        check('Actual V2 output remains whole-clip classification',v2)
+        def evidence_integration():
+            r=saved['fall'];pose=next(m for m in r['model_results'] if m['model_version'].startswith('yolo'))
+            delivery=pose['event_delivery'];assert delivery.get('incident_id'),delivery
+            incident=expect(client.get(B+'/incidents/'+delivery['incident_id']+'/report'))
+            assert incident['zone_id']=='ZONE_STAIRCASE' and incident['evidence']
+            media=pose['evidence_media'];assert media
+            for item in media:
+                assert client.get(A+item['url'],headers={'Range':'bytes=0-1023'}).status_code==206
+                manifest=expect(client.get(A+'/monitoring/incidents/'+incident['id']+'/evidence/'+item['id']+'/metadata'))
+                overlay=manifest['overlay_result'];assert overlay['analysis_id']==pose['analysis_id'] and overlay['input_sha256']==pose['input_sha256']
+                assert any(p['fall_rule_active'] for f in overlay['pose_frames'] for p in f['persons'])
+            page.locator('aside').get_by_role('button',name='Digital Twin Map',exact=True).click()
+            browser_expect(page.locator('main')).to_be_visible()
+            page.locator('aside').get_by_role('button',name='Alerts',exact=True).click()
+            browser_expect(page.locator('main')).to_be_visible()
+            return {'incident':incident['id'],'zone':incident['zone_id'],'retained_evidence':len(media),'alerts_and_digital_twin_navigation':True}
+        check('Actual fall evidence and incident delivery, Alerts and Digital Twin preserved',evidence_integration)
+        def cached_replay():
+            began=time.perf_counter()
+            row=expect(client.post(A+'/monitoring/jobs',json={'scenario_id':'fall','camera_id':'CAM_STAIRCASE','zone_id':'ZONE_STAIRCASE','model':'all','authorized':True}),202)
+            assert row.get('cache_hit') and row['status']=='COMPLETED'
+            result=row['result'];assert result['pose_frames']==saved['fall']['pose_frames']
+            elapsed_ms=round((time.perf_counter()-began)*1000,2)
+            private=client.post(A+'/monitoring/jobs',json={'scenario_id':'fall','camera_id':'CAM_STAIRCASE','zone_id':'ZONE_TOILET_BLINDSPOT','model':'all','authorized':True})
+            assert private.status_code==403
+            return {'request_ms':elapsed_ms,'cache_tier':row.get('cache_tier'),'frames':len(result['pose_frames']),'exact_cached_results':True,'private_media_rejected':403}
+        check('Genuine cached replay returns exact frame metadata without inference; private video refused',cached_replay)
+        def queue_test():
+            cams=expect(client.get(B+'/monitoring/cameras'));hall_camera=next(c for c in cams if c['camera_id']=='CAM_HALL')
+            # Exercise real running + obsolete queued work without cancelling the active CPU model.
+            def forced(camera,sequence,owner='queue-switch'):
+                return expect(client.post(A+'/monitoring/jobs',json={'scenario_id':camera['scenario_id'],'camera_id':camera['camera_id'],'zone_id':camera['zone_id'],'model':'all','authorized':True,'force':True,'client_id':owner,'selection_seq':sequence}),202)
+            first_camera=next(c for c in cams if c['camera_id']=='CAM_CORRIDOR_A');old_camera=next(c for c in cams if c['camera_id']=='CAM_ENTRANCE')
+            active=forced(first_camera,1)
+            for _ in range(200):
+                active_row=expect(client.get(A+'/monitoring/jobs/'+active['id']))
+                if active_row['status']=='RUNNING':break
+                time.sleep(.03)
+            assert active_row['status']=='RUNNING'
+            duplicate=forced(first_camera,1,'second-viewer');assert duplicate['id']==active['id'] and duplicate['deduplicated']
+            obsolete=forced(old_camera,2);latest=forced(hall_camera,3)
+            assert expect(client.get(A+'/monitoring/jobs/'+obsolete['id']))['status']=='CANCELLED'
+            for accepted in (active,latest):
+                for _ in range(600):
+                    done=expect(client.get(A+'/monitoring/jobs/'+accepted['id']))
+                    if done['status']=='COMPLETED':break
+                    assert done['status'] in ('QUEUED','RUNNING'),done
+                    time.sleep(.1)
+                assert done['status']=='COMPLETED'
+            (OUT/'queue-switch-results.json').write_text(json.dumps({'status':'PASS','active_duplicate_same_job':True,'obsolete_queued_cancelled':True,'running_job_not_interrupted':True,'latest_camera_completed':True},indent=2))
+            print('PASS actual CPU job coalescing and safe queued camera-switch cancellation',flush=True)
+
+            return json.loads((OUT/'queue-switch-results.json').read_text())
+        check('Actual CPU queue: duplicate coalescing and obsolete queued cancellation',queue_test)
+        def audits():
+            page.set_viewport_size({'width':1500,'height':1050})
+            page.locator('aside').get_by_role('button',name='Incident Review',exact=True).click()
+            inspected=[]
+            for scenario in ('fall','conflict'):
+                result=saved[scenario]
+                output=next(m for m in result['model_results'] if (m['model_version'].startswith('yolo') if scenario=='fall' else m['model_version']=='v3'))
+                identifier=output['event_delivery']['incident_id'];item=output['evidence_media'][0]
+                page.get_by_placeholder('Search notes, staff, incident #...').fill(identifier[:8])
+                page.get_by_role('button',name='Audit Details',exact=True).click()
+                section=page.get_by_test_id('incident-evidence');browser_expect(section).to_have_attribute('data-incident-id',identifier)
+                clip=section.locator('video');browser_expect(clip).to_have_attribute('data-variant','original')
+                page.wait_for_function("()=>{const v=document.querySelector('[data-testid=incident-evidence] video');return v?.readyState>=2&&!v.paused}")
+                if scenario=='fall':
+                    frame=next(f for f in result['pose_frames'] if any(p['fall_rule_active'] for p in f['persons']))
+                    clip.evaluate('(v,t)=>{v.pause();v.currentTime=t}',frame['time_sec']-item['start_sec']+.001)
+                    page.wait_for_function("()=>{const v=document.querySelector('[data-testid=incident-evidence] video');return v?.readyState>=2&&!v.seeking&&v.paused}")
+                    browser_expect(section.locator('[data-fall-candidate=true]')).to_be_visible()
+                    clip.scroll_into_view_if_needed()
+                    clip.screenshot(path=str(OUT/'fall-audit-genuine-overlay.png'))
+                    section.get_by_role('button',name='Show annotated clip',exact=True).click()
+                    browser_expect(clip).to_have_attribute('data-variant','annotated')
+                    assert section.get_by_test_id('video-detection-overlay').count()==0
+                else:
+                    browser_expect(section.get_by_test_id('fight-video-overlay')).to_contain_text('POSSIBLE FIGHT')
+                    assert section.get_by_test_id('person-box').count()==0
+                    page.screenshot(path=str(OUT/'fight-audit-genuine-overlay.png'),full_page=True)
+                inspected.append({'incident':identifier,'scenario':scenario,'matching_analysis':output['analysis_id']})
+                page.get_by_role('button',name='Close',exact=True).click()
+            return inspected
+        check('Audit Details plays matching fall and fight evidence with genuine synchronized overlays',audits)
+        def features():
+            page.set_viewport_size({'width':1500,'height':1050})
+            def nav(name):page.locator('aside').get_by_role('button',name=name,exact=True).click()
+            nav('Alerts');browser_expect(page.locator('main')).to_be_visible()
+            assert expect(client.get(B+'/state'))['incidents']
+            nav('Digital Twin Map');page.locator('[data-zone-id="ZONE_TOILET_BLINDSPOT"] polygon').first.click()
+            private=page.get_by_test_id('private-monitoring-view');scene=page.get_by_test_id('private-twin-scene')
+            browser_expect(private).to_be_visible();canvas=scene.locator('canvas');browser_expect(canvas).to_be_visible()
+            health=canvas.evaluate('c=>{const gl=c.getContext("webgl2");return {width:c.width,height:c.height,webgl2:!!gl,lost:gl?.isContextLost()}}')
+            assert health['webgl2'] and not health['lost'] and health['width']>100,health
+            assert private.locator('video,img,audio').count()==0
+            with page.expect_response(lambda r:r.url.endswith('/event') and r.request.method=='POST') as observed:
+                private.get_by_role('button',name='Simulate presence',exact=True).click()
+            event=observed.value.json();assert event['event']['processing_mode']=='simulation'
+            browser_expect(scene).to_have_attribute('data-presence-indicated','true')
+            page.screenshot(path=str(OUT/'private-3d.png'),full_page=True)
+            nav('Analytics & Reports');report=page.get_by_test_id('analytics-reports');browser_expect(report).to_be_visible()
+            browser_expect(report.get_by_role('button',name='Download CSV',exact=True)).to_be_enabled()
+            total=int(report.get_by_test_id('analytics-kpi-total').locator('[data-value]').inner_text());assert total>0
+            assert report.locator('svg').count()>=5
+            import csv,io
+            with page.expect_download() as download:report.get_by_role('button',name='Download CSV',exact=True).click()
+            csv_path=OUT/'operational-incidents.csv';download.value.save_as(str(csv_path));rows=list(csv.reader(io.StringIO(csv_path.read_text(encoding='utf-8-sig'))));assert len(rows)-1==total and len(rows[0])==14
+            with page.expect_download(timeout=60000) as download:report.get_by_role('button',name='Download PDF',exact=True).click()
+            pdf_path=OUT/'operational-report.pdf';download.value.save_as(str(pdf_path))
+            from pypdf import PdfReader
+            pdf=PdfReader(pdf_path);assert len(pdf.pages)>0
+            assert sum(len(p.get_contents().get_data()) for p in pdf.pages)>10000
+            page.screenshot(path=str(OUT/'analytics-reports.png'),full_page=True)
+            return {'alerts_and_incidents':True,'private_3d_webgl':health,'private_sensor_simulation':True,'private_cctv_elements':0,'report_records':total,'csv_rows':len(rows)-1,'pdf_pages':len(pdf.pages)}
+        check('Digital Twin, private 3D sensors, Alerts, Incidents and visual report exports',features)
+        assert not errors,errors
+        browser.close()
+finally:
+    for process,log in reversed(processes):
+        if process.poll() is None:
+            process.terminate()
+            try:process.wait(timeout=10)
+            except subprocess.TimeoutExpired:process.kill()
+        log.close()
+    client.close()
+print(json.dumps({'passed':sum(r['status']=='PASS' for r in RESULTS),'failed':sum(r['status']=='FAIL' for r in RESULTS)}),flush=True)
+sys.exit(any(r['status']=='FAIL' for r in RESULTS))

@@ -1,0 +1,7 @@
+.analytics-reports { color: #0f172a; color-scheme: light; }
+.analytics-reports input, .analytics-reports textarea { max-width: 100%; }
+.analytics-reports [role="tabpanel"] { overflow-wrap: anywhere; }
+.analytics-reports .recharts-cartesian-axis-tick text { fill: #64748b; }
+.analytics-reports .recharts-default-tooltip { background: #fff !important; border: 1px solid #e2e8f0 !important; border-radius: 8px; color: #0f172a; }
+.analytics-reports button, .analytics-reports summary { cursor: pointer; }
+.analytics-reports :focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }

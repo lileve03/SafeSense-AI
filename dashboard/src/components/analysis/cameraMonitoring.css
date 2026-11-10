@@ -1,0 +1,20 @@
+.camera-selector {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(156px, 1fr);
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 1px 5px;
+}
+.camera-selector-card { min-width: 0; }
+.monitoring-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.monitoring-results { scrollbar-gutter: stable; }
+.monitoring-results > * { min-width: 0; overflow-wrap: anywhere; }
+.monitoring-results dd { font-variant-numeric: tabular-nums; }
+@media (min-width: 1100px) {
+  .monitoring-workspace { grid-template-columns: minmax(0, 1fr) 300px; }
+  .monitoring-results { max-height: 560px; overflow-y: auto; padding-right: 3px; }
+}
+@media (min-width: 1600px) {
+  .monitoring-workspace { grid-template-columns: minmax(0, 1fr) 320px; }
+}

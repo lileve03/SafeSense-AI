@@ -1,0 +1,49 @@
+[
+  {
+    "archive": "C:\\Users\\ewei2\\Desktop\\threejs_test.zip",
+    "archive_sha256": "44b3b62caac9ffbe45b1d1ce17c432ecf40b6cd29cc7b070babdf9ea8ea0f188",
+    "files": [
+      {
+        "entry": "threejs_test/index.html",
+        "bytes": 940,
+        "sha256": "3240e3744524d4d71eb9ced64acde50a5ec7de1d700dabf3dd7d435bc9bea506"
+      },
+      {
+        "entry": "threejs_test/main.js",
+        "bytes": 81663,
+        "sha256": "94693ba5d0e14d086bfdd923daa90900d580a2ff6bed6ba68ebc6aa5fe300974"
+      }
+    ]
+  },
+  {
+    "archive": "C:\\Users\\ewei2\\Downloads\\SafeSense_Phase2_End_to_End_Test.zip",
+    "archive_sha256": "453278e274c87d3e96f5476e1e5f5a5975acc93b349af25feec9808353f5b193",
+    "files": [
+      {
+        "entry": "SafeSense_Phase2_End_to_End/test_events.json",
+        "bytes": 163,
+        "sha256": "afb5c20006fe706a6a1aa1c3913b633ec61f6d2145cf4c34cced71ed07f30fe0"
+      },
+      {
+        "entry": "SafeSense_Phase2_End_to_End/server.py",
+        "bytes": 5216,
+        "sha256": "379448bc96eb653b5ef142ece50f9c625a92263ae9f3245b22bfbcb09d622ea1"
+      },
+      {
+        "entry": "SafeSense_Phase2_End_to_End/test_twin.json",
+        "bytes": 64788,
+        "sha256": "1a92a9b24253b257da721de3322cb67a10bfac23a03f5cb3ed6d82c52da77026"
+      },
+      {
+        "entry": "SafeSense_Phase2_End_to_End/index.html",
+        "bytes": 6840,
+        "sha256": "8439fe4157060bfc12d5c13e749638101091417ef6d872c01080987ab9f82aec"
+      },
+      {
+        "entry": "SafeSense_Phase2_End_to_End/README.md",
+        "bytes": 1149,
+        "sha256": "3e314fbd0b42921ef4c1b54143baa8fa40e8ebf9da6ed4dcc6f2fb15e20f1990"
+      }
+    ]
+  }
+]

@@ -1,0 +1,41 @@
+# System workflow
+
+Start with `.\Start-SafeSense.ps1`. Default URLs remain dashboard 3000, backend 8000, inference 8001. The launcher reads optional local `.env` values with SAFESENSE_/TELEGRAM_ prefixes and propagates the API token and service URLs. Existing occupied services are never killed. Restart your old launcher after updating code; an old Python process continues serving its previously imported code.
+
+## Public monitoring
+
+Live Monitoring → Campus Camera Feeds → click a configured recording. Playback starts muted automatically; native controls support pause/resume/seeking. A bounded asynchronous job invokes existing V2/V3 or YOLO inference. CPU work runs outside the UI and outside API request handlers. One job runs with at most two queued jobs; direct legacy uploads retain their existing single-analysis lock and may return 429 while a job is running. Jobs persist QUEUED/RUNNING/COMPLETED/FAILED; a service restart reports unfinished jobs as INTERRUPTED instead of silently retrying.
+
+Each camera click now runs V2, V3 and YOLO11-Pose together by default, sequentially on CPU. The model selector can also run any one model. Each result retains its own score/threshold where applicable, candidate state, delivery result and evidence. A failure in one model is shown explicitly while successful model results remain available. Unconfigured camera cards are disabled instead of opening an invented feed.
+
+Actual YOLO annotations replay as a completed, precomputed analysis of that same video. Buttons seek to actual experimental-rule timestamps. R3D-18 outputs a whole-video score: there are no invented fight boxes, timestamps, track IDs or person accusations. Feature cache hits explicitly report no frame inference in that run. Metrics distinguish source FPS, sampled/processed FPS, model pipeline duration, queue delay and total job processing including evidence and event delivery. This is offline processing, not validated real-time detection. For authorized live sources, current MJPEG preview and completed annotated sample replay are displayed separately; the recorded sample is never labeled as current live output.
+
+A candidate creates real H.264, audio-free evidence via FFmpeg. Fight evidence preserves the full analyzed clip because event timing is not localized. Fall evidence uses the first rule candidate, configurable 5 seconds before/after, clamped to actual video duration. Evidence metadata includes UUID, zone, camera where known, model, score, source, timing scope, interval and retention. It is attached to the existing backend event/incident. Encoding failures are visible and do not turn a candidate into a fabricated clip.
+
+## Fresh scenario testing
+
+Live Monitoring → Scenario Testing Library offers 12 fresh existing research inputs; saved predictions and controlled tests remain separately labeled in original controls. The catalog validates actual files and sensor prerequisites. `/testing/runs` creates a bounded persistent job: one running, two waiting. Video jobs reuse the existing inference service; raw sensor workers use the retained dedicated environments with local files/models only. Fresh negative acoustic output is recorded as normal_acoustic metadata. Independent raw sensor samples carry separate analysis_run_id values and cannot be fused/coalesced as a synchronized incident. Unfinished runs report INTERRUPTED after a backend restart. See SCENARIO_TEST_GUIDE.md for actual execution and preservation checks.
+
+## Private monitoring and Digital Twin
+
+Digital Twin → private zone opens the existing original Three.js room. Presence-only backend readings show an anonymous signal overlay without a located floor mannequin; measured counts, coordinates and separation remain unavailable. Original mannequin placement/count/distance is shown only in labeled local simulation. The sensor-provenance panel shows each source's mode, timestamp, supplied model score and evaluation-row reference. Recorded radar/acoustic predictions cannot cross-fuse unrelated recordings. Controlled fusion is labeled simulation. The room's incident overlay opens the actual sensor-only incident. Backend private-zone validation rejects vision, video jobs and image/video evidence; no camera/microphone is opened by private monitoring.
+
+Public map selection retains its zone detail and offers Open zone video monitoring; the selected public zone loads its camera on the monitoring page. All operational pages use the existing two-second backend incident polling. Acknowledgement keeps the zone active; resolution/false-alarm clears that incident from active risk. Closed incidents cannot be acknowledged again.
+
+## Persistence, reporting and access
+
+`runtime/safesense.sqlite3` uses schema version 1, transactional snapshots and separate typed records for events, incidents, jobs, notifications and evidence-deletion audit. Override with SAFESENSE_DB_PATH for isolated tests. Restored monotonic timestamps cannot accidentally corroborate signals after restart. Existing /reset is an authenticated destructive demo reset of events/incidents; it does not delete evidence, jobs or notification audit.
+
+Sensitive backend reads and all mutations require X-SafeSense-Token. Health, zone status and research evaluation endpoints remain readable. Registered recording and evidence video URLs accept the same token as a query value for media playback. Evidence IDs must be canonical UUIDs; callers cannot supply filesystem paths. Evidence can be deleted with authenticated POST `/monitoring/evidence/{id}/delete`; incident references remain in the audit, while playback returns unavailable. Retention (default 7 days) is enforced at inference startup, hourly, and on evidence access/creation. Preserve source datasets separately: retention applies only to generated runtime evidence.
+
+Alerts and Incident Review open the shared incident modal with real evidence and notification history. Reports now has separate Incident reports, Operational analysis and Model evaluation categories. A selected report has Summary, Evidence, Response and Analysis tabs. Response records acknowledgement before resolution, requires a resolution note, and preserves the assigned recipient separately from the reviewing actor. Delivery history appears in reports and notification status updates across pages. CSV and browser Print / Save PDF remain available. Operational metrics are separate from saved model evaluation.
+
+## Authorized live cameras
+
+Set SAFESENSE_CAMERA_REGISTRY to a private JSON list. Each live row needs camera_id, camera_name, zone_id, authorized=true and stream_url with an actual permitted rtsp/http/https URL. No example secret or fictitious stream is supplied. PRIVATE zones are filtered out and rejected by video APIs. Credentials/URLs are removed from public registry responses.
+
+The live endpoint supplies a bounded MJPEG preview, at most two concurrent connections and 120 seconds per connection, with 5-second decoder open/read timeouts. Analysis captures a bounded 10-second sample then invokes the same offline models. It is not continuous real-time surveillance or a validated pre-trigger rolling buffer. Native live-stream seeking is unavailable. Frame budgets remain bounded; camera hardware connectivity and latency are NOT TESTED. Continuous pre/post-trigger buffering remains incomplete and is not claimed.
+
+## Production limitations
+
+Loopback/shared demo token is not production authentication. Vite embeds its token in the client; local media token queries may be present in local access logs. There are no individual login roles, TLS, school identity provider, encrypted-at-rest files or per-user evidence audit. Protect the workstation/runtime folder and do not expose these ports publicly. Staff Telegram routing is opt-in through both explicit mode and enable settings; test/replay incidents cannot enter staff chats. Live-source ingestion additionally requires a server-only credential never embedded in Vite. Recipient callbacks remain unavailable; staff acknowledge in the dashboard. On-duty staff routing uses configured roles and optional shift intervals, not location or nearest-person tracking. No emergency services are contacted. See TELEGRAM_SETUP.md for setup and limitations.

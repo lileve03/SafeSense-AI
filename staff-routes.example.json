@@ -1,0 +1,5 @@
+[
+  {"zone_id":"ZONE_CORRIDOR_A","staff":"Set actual on-duty security name","role":"security","active":false,"chat_id_env":"TELEGRAM_SECURITY_CHAT_ID","priority":10,"shift_start":null,"shift_end":null},
+  {"zone_id":"ZONE_TOILET_BLINDSPOT","staff":"Set actual duty teacher name","role":"duty_teacher","active":false,"chat_id_env":"TELEGRAM_TEACHER_CHAT_ID","priority":10,"shift_start":null,"shift_end":null},
+  {"zone_id":"ZONE_TOILET_BLINDSPOT","staff":"Set actual backup teacher name","role":"teacher","active":false,"is_backup":true,"chat_id_env":"TELEGRAM_BACKUP_TEACHER_CHAT_ID","priority":20,"shift_start":null,"shift_end":null}
+]
